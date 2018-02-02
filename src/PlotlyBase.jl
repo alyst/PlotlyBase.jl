@@ -96,6 +96,9 @@ export
     # styles
     use_style!, style, Style, Cycler, STYLES,
 
+    # subplots
+    arrange,
+
     # other
     savejson, savefig, savehtml, html_body
 

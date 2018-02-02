@@ -74,48 +74,37 @@ _is3d(s::AbstractString) = s in ["surface", "mesh3d", "scatter3d"]
 # else (maybe if trace didn't have a :type field set)
 _is3d(x::Any)= false
 
-function _cat(nr::Int, nc::Int, ps::Plot...)
-    copied_plots = Plot[copy(p) for p in ps]
-    subplot_titles = any(hastitle, ps)
-    layout = subplots_layout(nr, nc, subplot_titles)
+function arrange(layout::Layout, subplots::AbstractVector{<:Plot})
+    copied_subplots = Plot[copy(p) for p in subplots]
 
-    for col in 1:nc, row in 1:nr
-        ix = LinearIndices((nc, nr))[col, row]
-        add_subplot_annotation!(layout, copied_plots[ix].layout, ix)
-        layout["xaxis$ix"] = merge(copied_plots[ix].layout["xaxis"], layout["xaxis$ix"])
-        layout["yaxis$ix"] = merge(copied_plots[ix].layout["yaxis"], layout["yaxis$ix"])
+    for (ix, plot) in enumerate(copied_subplots)
+        add_subplot_annotation!(layout, plot.layout, ix)
+        layout["xaxis$ix"] = merge(plot.layout["xaxis"], layout["xaxis$ix"])
+        layout["yaxis$ix"] = merge(plot.layout["yaxis"], layout["yaxis$ix"])
 
-        if _is3d(copied_plots[ix])
+        if _is3d(plot)
             # need to move (x|y)axis$ix into scene$ix here
             layout["scene$ix"] = attr(
                 xaxis=pop!(layout, "xaxis$(ix)"),
                 yaxis=pop!(layout, "yaxis$(ix)")
             )
-            for trace in copied_plots[ix].data
+            for trace in plot.data
                 trace["scene"] = "scene$ix"
             end
         else
-            for trace in copied_plots[ix].data
+            for trace in plot.data
                 trace["xaxis"] = "x$ix"
                 trace["yaxis"] = "y$ix"
             end
         end
-
     end
 
-    Plot(vcat([p.data for p in copied_plots]...), layout)
+    Plot(vcat([p.data for p in copied_subplots]...), layout)
 end
 
-Base.hcat(ps::Plot...) = _cat(1, length(ps), ps...)
-Base.vcat(ps::Plot...) = _cat(length(ps), 1,  ps...)
-Base.vect(ps::Plot...) = vcat(ps...)
+arrange(layout::Layout, subplots::Plot...) = arrange(layout, [subplots...])
 
-function Base.hvcat(rows::Tuple{Vararg{Int}}, ps::Plot...)
-    nr = length(rows)
-    nc = rows[1]
-
-    for (i, c) in enumerate(rows[2:end])
-        c == nc || error("Saw $c columns in row $(i+1), expected $nc")
-    end
-    _cat(nr, nc, ps...)
-end
+arrange(subplots::AbstractVector{<:Plot}) =
+    arrange(subplots_layout(length(subplots), 1, any(hastitle, subplots)), vec(subplots))
+arrange(subplots::AbstractMatrix{<:Plot}) =
+    arrange(subplots_layout(size(subplots)..., any(hastitle, subplots)), vec(subplots))
