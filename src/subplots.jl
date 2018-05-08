@@ -15,6 +15,43 @@ function subplot_size(nr::Int, nc::Int, subplot_titles::Bool=false)
     width, height, hspace, vspace
 end
 
+function grid_layout(widths::AbstractVector{<:Number}, heights::AbstractVector{<:Number},
+                     horgaps::AbstractVector{<:Number}, vertgaps::AbstractVector{<:Number},
+                     nplots::Integer = length(widths)*length(heights))
+    nc = length(widths)
+    nr = length(heights)
+    length(horgaps) == nc+1 || throw(ArgumentError("Number of horizontal gaps does not match"))
+    length(vertgaps) == nr+1 || throw(ArgumentError("Number of vertical gaps does not match"))
+    (all(x -> x > 0.0, widths) && all(x -> x > 0.0, heights) &&
+     all(x -> x >= 0.0, horgaps) && all(x -> x >= 0.0, vertgaps)) || throw(ArgumentError("Negative lengths"))
+
+    hscale = 1.0/(sum(widths)+sum(horgaps))
+    vscale = 1.0/(sum(heights)+sum(vertgaps))
+
+    out = Layout()
+
+    x = horgaps[1]*hscale  # start from left
+    subplot = 1
+    for col in eachindex(widths)
+        (subplot > nplots) && break
+        w = widths[col]*hscale
+        y = 1.0-vertgaps[1]*vscale  # start from top
+        for row in eachindex(heights)
+            h = heights[row]*vscale
+
+            out["xaxis$subplot"] = Dict{Any,Any}(:domain=>[x, x+w], :anchor=>"y$subplot")
+            out["yaxis$subplot"] = Dict{Any,Any}(:domain=>[y-h, y], :anchor=>"x$subplot")
+
+            y -= (h + vertgaps[row+1]*vscale)
+            subplot += 1
+            (subplot > nplots) && break
+        end
+
+        x += w + horgaps[col+1]*hscale
+    end
+    out
+end
+
 function subplots_layout(nr, nc, subplot_titles::Bool=false)
     w, h, dx, dy = subplot_size(nr, nc, subplot_titles)
 
