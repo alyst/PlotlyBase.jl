@@ -103,7 +103,7 @@ function JSON.parse(::Type{Plot}, str::AbstractString)
     d = JSON.parse(str)
     data = GenericTrace[GenericTrace(tr) for tr in d["data"]]
     layout = Layout(d["layout"])
-    Plot(data, layout)
+    Plot(data, layout, get(d, "frames", PlotlyFrame[]))
 end
 
 JSON.parsefile(::Type{Plot}, fn) =
