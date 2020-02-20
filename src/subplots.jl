@@ -86,19 +86,25 @@ function add_subplot_annotation!(big_layout::Layout, sub_layout::Layout, ix::Int
     subtitle = pop!(sub_layout.fields, haskey(sub_layout.fields, "title") ? "title" : :title)
 
     # add text annotation with the subplot title
+    xdomain = get(big_layout.fields, "xaxis$(ix).domain", nothing)
+    ydomain = get(big_layout.fields, "yaxis$(ix).domain", nothing)
+    if (xdomain === nothing) || (ydomain === nothing)
+        return big_layout # skip title annotation if no domains
+    end
+    @info big_layout["xaxis$(ix).domain"] big_layout["yaxis$(ix).domain"]
     ann = Dict{Any,Any}(:font => Dict{Any,Any}(:size => 16),
                         :showarrow => false,
                         :text => subtitle,
-                        :x => mean(big_layout["xaxis$(ix).domain"]),
+                        :x => 0.5*(xdomain[1] + xdomain[2]),
                         :xanchor => "center",
                         :xref => "paper",
-                        :y => big_layout["yaxis$(ix).domain"][2],
+                        :y => ydomain[2],
                         :yanchor => "bottom",
                         :yref => "paper")
     anns = get(big_layout.fields, :annotations, Dict{Any,Any}[])
     push!(anns, ann)
     big_layout[:annotations] = anns
-    big_layout
+    return big_layout
 end
 
 # plots are 3d if any of their traces have a 3d type. This should flow down
