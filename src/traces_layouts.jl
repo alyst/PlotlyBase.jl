@@ -1,12 +1,15 @@
 abstract type AbstractTrace end
 abstract type AbstractLayout end
 
-mutable struct GenericTrace{T <: AbstractDict{Symbol,Any}} <: AbstractTrace
+const AbstractAttrDict = AbstractDict{Symbol, Any}
+const AttrDict = Dict{Symbol, Any}
+
+mutable struct GenericTrace{T <: AbstractAttrDict} <: AbstractTrace
     fields::T
 end
 
 function GenericTrace(kind::Union{AbstractString,Symbol},
-                      fields=Dict{Symbol,Any}(); kwargs...)
+                      fields=AttrDict(); kwargs...)
     # use setindex! methods below to handle `_` substitution
     fields[:type] = kind
     gt = GenericTrace(fields)
@@ -20,13 +23,13 @@ function GenericTrace(kind::Union{AbstractString,Symbol},
 end
 
 function _layout_defaults()
-    Dict{Symbol,Any}(
-        :margin => Dict(:l => 50, :r => 50, :t => 60, :b => 50),
+    AttrDict(
+        :margin => AttrDict(:l => 50, :r => 50, :t => 60, :b => 50),
         :template => templates[templates.default],
     )
 end
 
-mutable struct Layout{T <: AbstractDict{Symbol,Any}} <: AbstractLayout
+mutable struct Layout{T <: AbstractAttrDict} <: AbstractLayout
     fields::T
     subplots::Subplots
 
@@ -37,7 +40,7 @@ mutable struct Layout{T <: AbstractDict{Symbol,Any}} <: AbstractLayout
     end
 end
 
-Layout(fields::T=Dict{Symbol,Any}(); kwargs...) where {T <: AbstractDict{Symbol,Any}} =
+Layout(fields::T=AttrDict(); kwargs...) where {T <: AbstractAttrDict} =
     Layout{T}(fields; kwargs...)
 
 kind(gt::GenericTrace) = get(gt, :type, "scatter")
@@ -47,7 +50,7 @@ kind(l::Layout) = "layout"
 # Specific types of trace or layout attributes #
 # -------------------------------------------- #
 
-function attr(fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)
+function attr(fields::AbstractDict=AttrDict(); kwargs...)
     # use setindex! methods below to handle `_` substitution
     s = PlotlyAttribute(fields)
     for (k, v) in kwargs
@@ -57,7 +60,7 @@ function attr(fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)
 end
 attr(x::PlotlyAttribute; kw...) = attr(;x..., kw...)
 
-mutable struct PlotlyFrame{T <: AbstractDict{Symbol,Any}} <: AbstractPlotlyAttribute
+mutable struct PlotlyFrame{T <: AbstractAttrDict} <: AbstractPlotlyAttribute
     fields::T
     function PlotlyFrame{T}(fields::T) where T
         !(Symbol("name") in keys(fields)) && @warn("Frame should have a :name field for expected behavior")
@@ -65,11 +68,11 @@ mutable struct PlotlyFrame{T <: AbstractDict{Symbol,Any}} <: AbstractPlotlyAttri
     end
 end
 
-function frame(fields=Dict{Symbol,Any}(); kwargs...)
+function frame(fields=AttrDict(); kwargs...)
     for (k, v) in kwargs
         fields[k] = v
     end
-    PlotlyFrame{Dict{Symbol,Any}}(fields)
+    PlotlyFrame{AttrDict}(fields)
 end
 
 abstract type AbstractLayoutAttribute <: AbstractPlotlyAttribute end
@@ -85,10 +88,10 @@ const _Scalar = Union{DateTime,Date,Number,AbstractString,Symbol}
 # ------ #
 
 mutable struct Shape <: AbstractLayoutAttribute
-    fields::AbstractDict{Symbol}
+    fields::AbstractAttrDict
 end
 
-function Shape(kind::AbstractString, fields=Dict{Symbol,Any}(); kwargs...)
+function Shape(kind::AbstractString, fields=AttrDict(); kwargs...)
     # use setindex! methods below to handle `_` substitution
     fields[:type] = kind
     s = Shape(fields)
@@ -103,12 +106,12 @@ _rep(x, n) = take(cycle(x), n)
 # them here
 for t in [:line, :circle, :rect]
     str_t = string(t)
-    @eval $t(d::AbstractDict=Dict{Symbol,Any}(), ;kwargs...) =
+    @eval $t(d::AbstractDict=AttrDict(), ;kwargs...) =
         Shape($str_t, d; kwargs...)
     eval(Expr(:export, t))
 
     @eval function $(t)(x0::_Scalar, x1::_Scalar, y0::_Scalar, y1::_Scalar,
-                        fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)
+                        fields::AbstractDict=AttrDict(); kwargs...)
         $(t)(fields; x0=x0, x1=x1, y0=y0, y1=y1, kwargs...)
     end
 
@@ -116,7 +119,7 @@ for t in [:line, :circle, :rect]
                         x1::Union{AbstractVector,_Scalar},
                         y0::Union{AbstractVector,_Scalar},
                         y1::Union{AbstractVector,_Scalar},
-                        fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)
+                        fields::AbstractDict=AttrDict(); kwargs...)
         n = reduce(max, map(length, (x0, x1, y0, y1)))
         f(_x0, _x1, _y0, _y1) = $(t)(_x0, _x1, _y0, _y1, copy(fields); kwargs...)
         map(f, _rep(x0, n), _rep(x1, n), _rep(y0, n), _rep(y1, n))
@@ -141,26 +144,26 @@ export path
 
 # derived shapes
 
-vline(x, ymin, ymax, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...) =
+vline(x, ymin, ymax, fields::AbstractDict=AttrDict(); kwargs...) =
     line(x, x, ymin, ymax, fields; kwargs...)
 
 """
-`vline(x, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)`
+`vline(x, fields::AbstractDict=AttrDict(); kwargs...)`
 
 Draw vertical lines at each point in `x` that span the height of the plot
 """
-vline(x, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...) =
+vline(x, fields::AbstractDict=AttrDict(); kwargs...) =
     vline(x, 0, 1, fields; xref="x", yref="paper", kwargs...)
 
-hline(y, xmin, xmax, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...) =
+hline(y, xmin, xmax, fields::AbstractDict=AttrDict(); kwargs...) =
     line(xmin, xmax, y, y, fields; kwargs...)
 
 """
-`hline(y, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...)`
+`hline(y, fields::AbstractDict=AttrDict(); kwargs...)`
 
 Draw horizontal lines at each point in `y` that span the width of the plot
 """
-hline(y, fields::AbstractDict=Dict{Symbol,Any}(); kwargs...) =
+hline(y, fields::AbstractDict=AttrDict(); kwargs...) =
     hline(y, 0, 1, fields; xref="paper", yref="y", kwargs...)
 
 # ---------------------------------------- #
@@ -247,7 +250,7 @@ Base.isempty(hf::HasFields) = isempty(hf.fields)
 
 function Base.get(hf::HasFields, k::Symbol, default)
     out = getindex(hf, k)
-    (out == Dict()) ? default : out
+    isa(out, AttrDict) && isempty(out) ? default : out
 end
 
 Base.iterate(hf::HasFields) = iterate(hf.fields)
@@ -304,49 +307,12 @@ function Base.setindex!(gt::HasFields, val, container, key::Symbol)
     gt.fields[key] = _obtain_setindex_val(container, val, key)
 end
 
-function Base.setindex!(gt::HasFields, val, container, k1::Symbol, k2::Symbol)
-    d1 = get(gt.fields, k1, Dict())
+function Base.setindex!(gt::HasFields, val, container, keys::Symbol...)
+    inner_dict = reduce((dict, key) -> get!(() -> AttrDict(), dict, key),
+                        Iterators.take(keys, length(keys) - 1), init = gt.fields)
+    inner_key = last(keys)
     si_val = _obtain_setindex_val(container, val)
-    d1[k2] = si_val
-    gt.fields[k1] = d1
-    si_val
-end
-
-function Base.setindex!(gt::HasFields, val, container, k1::Symbol, k2::Symbol, k3::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    si_val = _obtain_setindex_val(container, val)
-    d2[k3] = si_val
-    d1[k2] = d2
-    gt.fields[k1] = d1
-    si_val
-end
-
-function Base.setindex!(gt::HasFields, val, container, k1::Symbol, k2::Symbol,
-                        k3::Symbol, k4::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    d3 = get(d2, k3, Dict())
-    si_val = _obtain_setindex_val(container, val)
-    d3[k4] = si_val
-    d2[k3] = d3
-    d1[k2] = d2
-    gt.fields[k1] = d1
-    si_val
-end
-
-function Base.setindex!(gt::HasFields, val, container, k1::Symbol, k2::Symbol,
-    k3::Symbol, k4::Symbol, k5::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    d3 = get(d2, k3, Dict())
-    d4 = get(d3, k4, Dict())
-    si_val = _obtain_setindex_val(container, val)
-    d4[k5] = si_val
-    d3[k4] = d4
-    d2[k3] = d3
-    d1[k2] = d2
-    gt.fields[k1] = d1
+    inner_dict[inner_key] = si_val
     si_val
 end
 
@@ -400,52 +366,27 @@ end
 
 # now on to the simpler getindex methods. They will try to get the desired
 # key, but if it doesn't exist an empty dict is returned
-function Base.getindex(gt::HasFields, key::String)
-    if in(Symbol(key), _UNDERSCORE_ATTRS)
-        gt.fields[Symbol(key)]
-    else
-        getindex(gt, map(Symbol, split(key, ['.', '_']))...)
-    end
-end
+Base.getindex(gt::HasFields, key::AbstractString) =
+    getindex(gt, Symbol(key))
 
-Base.getindex(gt::HasFields, keys::String...) =
+Base.getindex(gt::HasFields, keys::AbstractString...) =
     getindex(gt, map(Symbol, keys)...)
 
 function Base.getindex(gt::HasFields, key::Symbol)
-    if occursin("_", string(key))
-        if !in(key, _UNDERSCORE_ATTRS)
-            return getindex(gt, string(key))
-        end
+    if !in(key, _UNDERSCORE_ATTRS) && occursin(r"[_.]", string(key))
+        return getindex(gt, split(string(key), ['.', '_'])...)
+    else
+        return get(gt.fields, key, AttrDict())
     end
-    get(gt.fields, key, Dict())
 end
 
-function Base.getindex(gt::HasFields, k1::Symbol, k2::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    get(d1, k2, Dict())
-end
-
-function Base.getindex(gt::HasFields, k1::Symbol, k2::Symbol, k3::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    get(d2, k3, Dict())
-end
-
-function Base.getindex(gt::HasFields, k1::Symbol, k2::Symbol,
-                       k3::Symbol, k4::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    d3 = get(d2, k3, Dict())
-    get(d3, k4, Dict())
-end
-
-function Base.getindex(gt::HasFields, k1::Symbol, k2::Symbol,
-    k3::Symbol, k4::Symbol, k5::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    d3 = get(d2, k3, Dict())
-    d4 = get(d3, k4, Dict())
-    get(d4, k5, Dict())
+function Base.getindex(gt::HasFields, keys::Symbol...)
+    val = gt.fields
+    for k in keys
+        val = get(val, k, AttrDict())
+        isa(val, AttrDict) && isempty(val) && break
+    end
+    return val
 end
 
 function Base.getproperty(gt::HF, p::Symbol) where HF <: HasFields
@@ -456,43 +397,26 @@ function Base.getproperty(gt::HF, p::Symbol) where HF <: HasFields
 end
 
 # Now to the pop! methods
-function Base.pop!(gt::HasFields, key::String)
-    if in(Symbol(key), _UNDERSCORE_ATTRS)
-        pop!(gt.fields, Symbol(key))
-    else
-        pop!(gt, map(Symbol, split(key, ['.', '_']))...)
-    end
-end
+Base.pop!(gt::HasFields, key::AbstractString) = pop!(gt, Symbol(key))
 
-Base.pop!(gt::HasFields, keys::String...) =
+Base.pop!(gt::HasFields, keys::AbstractString...) =
     pop!(gt, map(Symbol, keys)...)
 
 function Base.pop!(gt::HasFields, key::Symbol)
-    if occursin("_", string(key))
-        if !in(key, _UNDERSCORE_ATTRS)
-            return pop!(gt, string(key))
-        end
+    if !in(key, _UNDERSCORE_ATTRS) && occursin(r"[_.]", string(key))
+        pop!(gt, split(string(key), ['.', '_'])...)
+    else
+        pop!(gt.fields, key, AttrDict())
     end
-    pop!(gt.fields, key, Dict())
 end
 
-function Base.pop!(gt::HasFields, k1::Symbol, k2::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    pop!(d1, k2, Dict())
-end
-
-function Base.pop!(gt::HasFields, k1::Symbol, k2::Symbol, k3::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    pop!(d2, k3, Dict())
-end
-
-function Base.pop!(gt::HasFields, k1::Symbol, k2::Symbol,
-                       k3::Symbol, k4::Symbol)
-    d1 = get(gt.fields, k1, Dict())
-    d2 = get(d1, k2, Dict())
-    d3 = get(d2, k3, Dict())
-    pop!(d3, k4, Dict())
+function Base.pop!(gt::HasFields, keys::Symbol...)
+    dict = gt.fields
+    for k in Iterators.take(keys, length(keys) - 1)
+        dict = get(dict, k, AttrDict())
+        isa(dict, AttrDict) && isempty(dict) && break
+    end
+    pop!(dict, last(keys), AttrDict())
 end
 
 function Base.delete!(hf::PlotlyBase.HasFields, args...)

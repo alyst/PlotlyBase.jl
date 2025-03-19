@@ -10,8 +10,7 @@ _check_row_col_arg(_l::Layout, x::Colon, name, dim::Int=1) = nothing
 
 prep_kwarg(pair::Union{Pair,Tuple}) =
     (Symbol(replace(string(pair[1]), "_" => ".")), pair[2])
-prep_kwargs(pairs::AbstractVector) = Dict(map(prep_kwarg, pairs))
-prep_kwargs(pairs::AbstractDict) = Dict(prep_kwarg((k, v)) for (k, v) in pairs)
+prep_kwargs(pairs) = Dict(prep_kwarg(p) for p in pairs)
 
 """
     size(::PlotlyBase.Plot)
@@ -51,7 +50,7 @@ fork(p::Plot) = Plot(deepcopy(p.data), copy(p.layout))
 # Javascript API #
 # -------------- #
 
-#= 
+#=
 
 this function is internal and allows us to match plotly.js semantics in
 `resytle!`. The reason is that if you try to set an attribute on a trace with
@@ -78,7 +77,7 @@ _apply_restyle_setindex!(hf::Union{AbstractDict,HasFields}, k::Symbol, v, i::Int
     setindex!(hf, v, k)
 
 
-#= 
+#=
 Wrap the vector so it repeats to be at least length N
 
 This means
@@ -102,7 +101,7 @@ _prep_restyle_vec_setindex(v::Tuple, N::Int) =
 # everything else just goes through
 _prep_restyle_vec_setindex(v, N::Int) = v
 
-function _update_fields(hf::GenericTrace, i::Int, update::Dict=Dict(); kwargs...)
+function _update_fields(hf::GenericTrace, i::Int, update::AbstractDict=AttrDict(); kwargs...)
     # apply updates in the dict w/out `_` processing
     for (k, v) in update
         _apply_restyle_setindex!(hf.fields, k, v, i)
@@ -114,11 +113,11 @@ function _update_fields(hf::GenericTrace, i::Int, update::Dict=Dict(); kwargs...
 end
 
 """
-    relayout!(l::Layout, update::AbstractDict=Dict(); kwargs...)
+    relayout!(l::Layout, update::AbstractDict=AttrDict(); kwargs...)
 
 Update `l` using update dict and/or kwargs
 """
-function relayout!(l::Layout, update::AbstractDict=Dict(); kwargs...)
+function relayout!(l::Layout, update::AbstractDict=AttrDict(); kwargs...)
     merge!(l.fields, update)  # apply updates in the dict w/out `_` processing
     foreach(x -> setindex!(l, x[2], x[1]), kwargs)
     l
@@ -130,7 +129,7 @@ function relayout!(dest::Layout, src::Layout; kwargs...)
 end
 
 """
-    relayout!(p::Plot, update::AbstractDict=Dict(); kwargs...)
+    relayout!(p::Plot, update::AbstractDict=AttrDict(); kwargs...)
 
 Update `p.layout` on using update dict and/or kwargs
 """
@@ -140,31 +139,31 @@ function relayout!(p::Plot, args...; kwargs...)
 end
 
 """
-    restyle!(gt::GenericTrace, i::Int=1, update::AbstractDict=Dict(); kwargs...)
+    restyle!(gt::GenericTrace, i::Int=1, update::AbstractDict=AttrDict(); kwargs...)
 
 Update trace `gt` using dict/kwargs, assuming it was the `i`th ind in a call
 to `restyle!(::Plot, ...)`
 """
-restyle!(gt::GenericTrace, i::Int=1, update::AbstractDict=Dict(); kwargs...) =
+restyle!(gt::GenericTrace, i::Int=1, update::AbstractDict=AttrDict(); kwargs...) =
     _update_fields(gt, i, update; kwargs...)
 
 """
-    restyle!(p::Plot, ind::Int=1, update::AbstractDict=Dict(); kwargs...)
+    restyle!(p::Plot, ind::Int=1, update::AbstractDict=AttrDict(); kwargs...)
 
 Update `p.data[ind]` using update dict and/or kwargs
 """
-function restyle!(p::Plot, ind::Int, update::AbstractDict=Dict(); kwargs...)
+function restyle!(p::Plot, ind::Int, update::AbstractDict=AttrDict(); kwargs...)
     restyle!(p.data[ind], 1, update; kwargs...)
     p
 end
 
 """
-    restyle!(::Plot, ::AbstractVector{Int}, ::AbstractDict=Dict(); kwargs...)
+    restyle!(::Plot, ::AbstractVector{Int}, ::AbstractDict=AttrDict(); kwargs...)
 
 Update specific traces at `p.data[inds]` using update dict and/or kwargs
 """
 function restyle!(p::Plot, inds::AbstractVector{Int},
-                  update::AbstractDict=Dict(); kwargs...)
+                  update::AbstractDict=AttrDict(); kwargs...)
     N = length(inds)
     kw = Dict{Symbol,Any}(kwargs)
 
@@ -180,11 +179,11 @@ function restyle!(p::Plot, inds::AbstractVector{Int},
 end
 
 """
-    restyle!(p::Plot, update::AbstractDict=Dict(); kwargs...)
+    restyle!(p::Plot, update::AbstractDict=AttrDict(); kwargs...)
 
 Update all traces using update dict and/or kwargs
 """
-restyle!(p::Plot, update::AbstractDict=Dict(); kwargs...) =
+restyle!(p::Plot, update::AbstractDict=AttrDict(); kwargs...) =
     restyle!(p, 1:length(p.data), update; kwargs...)
 
 """
